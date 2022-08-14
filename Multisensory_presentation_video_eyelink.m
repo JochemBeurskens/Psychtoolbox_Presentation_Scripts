@@ -1,3 +1,4 @@
+function Multisensory_presentation_video_eyelink
 %%  decide condition matrix (randomized)
 clear all;
 clc;
@@ -36,7 +37,7 @@ D = 0.001+0.0007;
 
 % For this code it is assumed that the input is a set of videos that are
 % different in the important parameters (ie. synchrony etc.)
-PsychDebugWindowConfiguration;
+% PsychDebugWindowConfiguration;
 % Screen('Preference', 'SkipSyncTests', 0);
 % a set of videos is loaded, we have 2 different heads, each with two
 % different movements and their corresponding sounds, and then we have 2
@@ -52,9 +53,10 @@ cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/McGurk_effect/
 % moviename = 'V_Ge_A_Be_Final.mov';
 %commented out for testing purposes
 movieNames = (dir('*.mov'));
-[v_ind,loc_v]=BalanceFactors(4,1,1:4,1:4);%sync ,[0,1] ,loc_s ,1:2
+[v_ind,loc_v,loc_a]=BalanceFactors(14,1,1:4,1:4,1:4);%sync ,[0,1] ,loc_s ,1:2
 % V_names = arrayfun(@(i) movieNames(v_ind(i)),1:length(v_ind),'UniformOutput',0);
 trials=length(v_ind);
+% load('last_trial.mat');
 %% Subject information prompt
 prompt    = {'Name','task: prac or formal','session','DummyMode (0 for eyelink, 1 if not)'};% TestMode = 1 with Bitsi boxes
 name      = 'Subject Information';
@@ -66,10 +68,13 @@ subj.name          = answer{1}; %max length is 8 digits
 subj.task          = answer{2};
 subj.session       = str2double(answer{3});
 dummymode          = str2double(answer{4});
-logmatrix = zeros(5,trials);
+name=subj.name;
+task=subj.task;
+session=subj.session;
+savename=['last_trial_' name '_task_' task '_session_' num2str(session) '.mat'];
 %% Initialize the screen etc.
 AssertOpenGL; %check that the psychtoolbox version that is installed is working properly
-
+i=1;
 background=[128, 128, 128];
     
 % PsychDebugWindowConfiguration;
@@ -188,7 +193,7 @@ Screen('BlendFunction', win, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
 Priority(MaxPriority(win));
 
 % Define some variables that are related to the screen
-distanceFromDisplay = 59; % distance from display, measured in the beh 1 lab: 59 cm
+distanceFromDisplay = 80; % distance from display, measured in the beh 1 lab: 59 cm
 % vis_diam            = 0.3; % diameter of dots
 
 ScreenResolution    = screenRect(3:4);
@@ -275,19 +280,31 @@ esc=KbName('ESCAPE');
 
 space=KbName('SPACE');
 
-RestrictKeysForKbCheck([esc,space]);
+far_left=KbName('Z');
+left=KbName('X');
+right=KbName('C');
+far_right=KbName('V');
+
+RestrictKeysForKbCheck([esc,space,far_left,left,right,far_right]);
 HideCursor;  
 ListenChar(2);
+HideCursor;
 %% setting the timing parameters and giving a number of trials per block
 if subj.session == 1
     startTri = 1;
 %     load(sprintf('%s_%s_design.mat',subj.name,subj.task));
 %     totTri   = size(design,1);
     toTri = startTri+5;
+    logmatrix = zeros(8,trials);
 else
+    name=subj.name;
+    task=subj.task;
+    session=subj.session-1;
+    savename_L=['last_trial_' name '_task_' task '_session_' num2str(session) '.mat'];
+    load(savename_L);
 %     load(sprintf('%s_%s_design.mat',subj.name,subj.task));
 %     load(sprintf('%s_%03d_%s_log',subj.name,subj.session-1,subj.task), 'endTri');
-    startTri = endTri+1;
+    startTri = i; %no need to add 1, did this when saving
 
     % this prunes the pre-constructed design to contain the trials that
     % have not yet been presented, to ensure an overall balanced design
@@ -330,6 +347,7 @@ PsychImaging('PrepareConfiguration');
     Eyelink('StartRecording');
     % record a few samples before we actually start displaying
     % otherwise you may lose a few msec of data
+    [win, screenRect] = Screen('OpenWindow', screenid,  background);
     WaitSecs(0.1);
     
     abortit = 0;
@@ -340,8 +358,8 @@ PsychImaging('PrepareConfiguration');
     
     % Load first movie. This is a synchronous (blocking) load:
     % Return full list of movie files from directory+pattern:
-    for i=1:size(movieNames,1)
-        movieNames(i).name = [ pwd filesep movieNames(i).name ];
+    for r=1:size(movieNames,1)
+        movieNames(r).name = [ pwd filesep movieNames(r).name ];
     end
      
     
@@ -372,35 +390,53 @@ PsychImaging('PrepareConfiguration');
     WaitSecs(0.5);
     Moment_before_loop=GetSecs;
     % Main trial loop: Do 'trials' trials...
-    for i=1:1%startTri:toTri
+    for i=startTri:toTri
         Eyelink('Message', 'START_TRIALID_%d', i); % for data viewer segregation 
         m_num=v_ind(i);
         iteration = v_ind(i);
         moviename=movieNames(mod(iteration, size(movieNames,1))+1).name;   
         %now setting the location, as given by tan(theta)=opposite/adjacent
         if loc_v(i) == 1
-            angle=10.5;
+            angle=15.0;
+            v_loc='far_right';
         elseif loc_v(i) == 2
-            angle=3.5;
+            angle=5.0;
+            v_loc='right';
         elseif loc_v(i) == 3
-            angle=-3.5;
+            angle=-5.0;
+            v_loc='left';
         elseif loc_v(i) == 4
-            angle=-10.5;
+            angle=-15.0;
+            v_loc='far_left';
         end        
+        if loc_a(i) == 1
+            a_loc='far_right';
+        elseif loc_a(i) == 2
+            a_loc='right';
+        elseif loc_a(i) == 3
+            a_loc='left';
+        elseif loc_a(i) == 4
+            a_loc='far_left';
+        end   
+        sync=1;
+        combi_a_v=1;%these two should be coded numebers
         angle=pi*(angle/180);
         loccntr_target=tan(angle)*distanceFromDisplay;
-        SizeTarget=100;
+        SizeTarget=150;
         Coords_cntr = [X+(loccntr_target-SizeTarget) Y-SizeTarget X+(loccntr_target+SizeTarget) Y+SizeTarget];
         logmatrix(1,i)=m_num;
-        logmatrix(2,i)=angle;
+        logmatrix(2,i)=loc_v(i);
+        logmatrix(3,i)=loc_a(i);
+        logmatrix(4,i)=sync;
+        logmatrix(5,i)=combi_a_v;
         % Open the moviefile and query some infos like duration, framerate,
         % width and height of video frames. We could also query the total count of frames in
         % the movie, but computing 'framecount' takes long, so avoid to query
         % this property if you don't need it!
         %present fixation cross
         Screen('FillRect', win, [255,255,255], FixCross_coords', background );
-        Eyelink('Message', 'pre-cue fixation onset');
         [t_prefix prefixonset prefix_flip]=Screen('Flip', win); %this flip is used as a timing marker
+        Eyelink('Message', 'pre-cue fixation onset');
 %         disp(t_prefix-Moment_before_loop)
 %         disp(prefixonset-Moment_before_loop)
 %         disp(prefix_flip-Moment_before_loop)
@@ -478,9 +514,10 @@ PsychImaging('PrepareConfiguration');
 %                 disp(timeOfEvent+pts-GetSecs);
 %                 s=GetSecs;
 %                 disp(start-s);
-                Eyelink('Message', 'STIMULUS_FRAME_%d',movietexture);
+%                 Eyelink('Message', 'STIMULUS_FRAME_%d',pts);
                 vbl=Screen('Flip', win);%,time_present); %cannot change this timing, as this screen function in combination with the above automatically plays the video in synchronous order
-%                 disp('b');
+                Eyelink('Message', 'Stimulus_presentation');
+                %                 disp('b');
 %                 disp(timeOfEvent-vbl);
                 % Is this the first frame in the video?
                 if (onsettime==-1 && pts >= (timeOfEvent-Moment_before_loop))
@@ -514,6 +551,11 @@ PsychImaging('PrepareConfiguration');
             if (keyIsDown==1)
                 % Abort requested?
                 if keyCode(esc)
+                    rejecttrial=5; %last trial should be rejected due to participant aborting program
+                    i=i+1; %now the trial where the next session should start should be i+1, so that not twice the same trial is performed
+                    logmatrix(6,i)=rejecttrial;
+                    name=subj.name;
+                    save(savename,'i','name','logmatrix')
                     % This signals abortion:
                     rejecttrial=-1;
                     Screen('CloseMovie', movie);
@@ -530,7 +572,6 @@ PsychImaging('PrepareConfiguration');
                     ListenChar(0);
                     sca;  
                     psychrethrow(psychlasterror);
-                    i=trials+1;
                     %continue; %use this in the case where we want to have
                     %the videos stopped at the moment of keypress by the
                     %subject
@@ -548,6 +589,7 @@ PsychImaging('PrepareConfiguration');
         Stopt = ini_resp + resp_duration;%timeOfEvent+resp_duration%GetSecs + resp_duration;
         Screen('FillRect', win, [128,218,128 ], FixCross_coords', background );
         [t_postfix, postfixonset]=Screen('Flip', win);
+        Eyelink('Message', 'RESPONSE_ONSET');
         while GetSecs<Stopt
 %             [realWakeupTimeSecs] = WaitSecs(2);
             % Check the state of the keyboard.
@@ -557,11 +599,22 @@ PsychImaging('PrepareConfiguration');
 %             WaitSecs(2);
             [keyIsDown, seconds, keyCode, deltarateSecs] = KbCheck;
             % If the user is pressing a key, then display its code number and name.
-            if keyCode(space)
-                logmatrix(3,i)=5;
+            if keyIsDown%keyCode(space) || keyCode(far_left) || keyCode(left) || keyCode(right) || keyCode(far_right)
+                if keyCode(far_left) 
+                    logmatrix(7,i)=1;
+                end
+                if keyCode(left) 
+                    logmatrix(7,i)=2;
+                end
+                if keyCode(right) 
+                    logmatrix(7,i)=3;
+                end
+                if keyCode(far_right) 
+                    logmatrix(7,i)=4;
+                end
                 timeEndVideo=vbl+movieduration;
                 reactiontime=seconds-startResponse; %compare the moment of keypress with the moment the video ended/last frame was shown
-                logmatrix(5,i)=reactiontime;
+                logmatrix(8,i)=reactiontime;
                 % Response too early (before event happened?)
                 if (reactiontime<0)
                     % Reject this trial:
@@ -578,6 +631,10 @@ PsychImaging('PrepareConfiguration');
                 fprintf('You pressed key %i which is %s\n', find(keyCode), KbName(keyCode));
 
                 if keyCode(esc)
+                    rejecttrial=5; %last trial should be rejected due to participant aborting program
+                    i=i+1; %now the trial where the next session should start should be i+1, so that not twice the same trial is performed
+                    save(savename,'i','name','logmatrix')
+
                     rejecttrial=-1;
                     Screen('CloseMovie', movie);
                     WaitSecs(0.8);
@@ -618,30 +675,28 @@ PsychImaging('PrepareConfiguration');
         
         % Close the moviefile.
         Screen('CloseMovie', movie);
-        
+
         %now present in the case of practice, whether the correct answer
         %was given
-%         if subj.task=='prac' 
-%            tsize=30;
-%            Screen('TextSize', win, tsize);
-%            [x, y]=Screen('DrawText', win, 'Binding experiment. ' ); %note that capital X and Y are the center of the screen where the fix. cross is presented
-% %            [x, y]=Screen('DrawText', win, 'The visual target was presented at:' + str(angle) );
-%            Screen('Flip', win);
-% %            waitsecs(1);
-%         end
-        
-        % Check if aborted.
-        if (rejecttrial==-1)
-            % Break out of trial loop
-            break;
-        end;
+        if subj.task=='prac' 
+           tsize=30;
+           Screen('TextSize', win, tsize);
+           txt1=['Visual target at: '  num2str(v_loc) '.' ];
+           txt2=['Auditory target at: '  num2str(a_loc) '.'];
+           Screen('DrawText', win, txt1 ,X-150,Y ); %note that capital X and Y are the center of the screen where the fix. cross is presented
+           Screen('DrawText', win, txt2 ,X-150,Y+30 );
+           %            [x, y]=Screen('DrawText', win, 'The visual target was presented at:' + str(angle) );
+           Screen('Flip', win);
+           WaitSecs(2.0);
+           Screen('Flip', win);
+        end
         
         if (reactiontime==-1 && rejecttrial==0)
             rejecttrial=3;
         end;
         
         % Print out trials result if it was a valid trial:
-        logmatrix(4,i)=rejecttrial;
+        logmatrix(6,i)=rejecttrial;
         if (rejecttrial==0)
             fprintf('Trial %i valid: Reaction time was %f msecs.\n', i, 1000 * reactiontime);
         end;
@@ -662,9 +717,59 @@ PsychImaging('PrepareConfiguration');
             fprintf('Trial %i rejected. Way too many skips in movie playback!!!\n', i);
         end;
         
+        %now check if a break is needed (I set it to once every 20 trials)
+        modulus=mod(i,3);
+        if modulus==0
+            tsize=30;
+            Screen('TextSize', win, tsize);
+            Screen('DrawText', win, 'Take a short break if you need it,',X-150,Y );
+            Screen('DrawText', win, 'to continue press the space bar.',X-150,Y+30 );
+            Screen('DrawText', win, 'To quit press the escape key.',X-150,Y+60 );
+             
+            % Flip to show the grey screen with wait text on it:
+            Screen('Flip',win); 
+            % Wait for keypress + release...
+            [secs, keyCode, deltaSecs] = KbStrokeWait;
+            if keyCode(esc)
+            %The two lines below are not needed here, as run is aborted in waiting period    
+%                 rejecttrial=5; %last trial should be rejected due to participant aborting program
+%                 i=trials+1; %now the trial where the next session should start should be i+1, so that not twice the same trial is performed
+
+                % This signals abortion:
+                rejecttrial=-1;
+                WaitSecs(0.8);
+
+                %save data
+                save(savename,'i','name','logmatrix')
+
+                % Break out of display loop:
+                eyelink_close(edfFile);
+                ShowCursor;
+                ple
+                sca
+                Priority(0);
+                PsychPortAudio('Close');
+                RestrictKeysForKbCheck([]);
+                ListenChar(0);
+                sca;  
+                psychrethrow(psychlasterror);
+                %continue; %use this in the case where we want to have
+                %the videos stopped at the moment of keypress by the
+                %subject
+            end;       
+            % Show cleared screen...
+            Screen('Flip',win);
+            WaitSecs(1.0);
+        end
+        
+        % Check if aborted.
+        if (rejecttrial==-1)
+            % Break out of trial loop
+            break;
+        end;
+        
         % Wait for subject to release keys:
         KbReleaseWait;
-        
     end; % Trial done. Next trial...
     
     % Done with the experiment. Close onscreen window and finish.
@@ -689,3 +794,4 @@ catch %#ok<CTCH>
     ListenChar(0);
 %     psychrethrow(psychlasterror);
 end;
+end
