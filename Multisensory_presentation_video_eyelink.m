@@ -37,41 +37,33 @@ D = 0.001+0.0007;
 
 % For this code it is assumed that the input is a set of videos that are
 % different in the important parameters (ie. synchrony etc.)
-% PsychDebugWindowConfiguration;
+%PsychDebugWindowConfiguration;
 % Screen('Preference', 'SkipSyncTests', 0);
 % a set of videos is loaded, we have 2 different heads, each with two
 % different movements and their corresponding sounds, and then we have 2
 % different synchrony settings (asynchronous or synchronous). This gives a
 % total of 8 different videos that are loaded.
 % Next to that there are 2 locations for the sound and 2 for the videos
-% Screen('Preference', 'SkipSyncTests', 1);
+% Screen('Preference', 'SkipSyncTests', 0);
 % Screen('Preference', 'ConserveVRAM', 64);
-cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/McGurk_effect/');
 
-
-
-% moviename = 'V_Ge_A_Be_Final.mov';
-%commented out for testing purposes
-movieNames = (dir('*.mov'));
-[v_ind,loc_v,loc_a]=BalanceFactors(14,1,1:4,1:4,1:4);%sync ,[0,1] ,loc_s ,1:2
-% V_names = arrayfun(@(i) movieNames(v_ind(i)),1:length(v_ind),'UniformOutput',0);
-trials=length(v_ind);
-% load('last_trial.mat');
 %% Subject information prompt
-prompt    = {'Name','task: prac or formal','session','DummyMode (0 for eyelink, 1 if not)'};% TestMode = 1 with Bitsi boxes
+prompt    = {'Name','task: prac or formal','session','DummyMode (0 for eyelink, 1 if not)','order (0=random, 1 is ordered)'};% TestMode = 1 with Bitsi boxes
 name      = 'Subject Information';
 numLines  = 1;
-default   = {'test','prac','1','1'};
+default   = {'test','prac','1','1','0'};
 answer    = inputdlg(prompt, name, numLines, default);
 
 subj.name          = answer{1}; %max length is 8 digits
 subj.task          = answer{2};
 subj.session       = str2double(answer{3});
 dummymode          = str2double(answer{4});
+subj.order         = answer{5};
 name=subj.name;
 task=subj.task;
 session=subj.session;
 savename=['last_trial_' name '_task_' task '_session_' num2str(session) '.mat'];
+
 %% Initialize the screen etc.
 AssertOpenGL; %check that the psychtoolbox version that is installed is working properly
 i=1;
@@ -145,8 +137,11 @@ Eyelink('command','screen_pixel_coords = %ld %ld %ld %ld', 0, 0, width-1, height
 Eyelink('message', 'DISPLAY_COORDS %ld %ld %ld %ld', 0, 0, width-1, height-1);
 
 % Set calibration type.
-Eyelink('command', 'calibration_type = HV5');
+Eyelink('command', 'calibration_type = HV5'); %using HV9 makes it so that 9 calibration points are used, HV5 uses only 5, maybe this gives more accurate results
 Eyelink('command', 'generate_default_targets = YES');
+%Reduce FOV
+Eyelink('command','calibration_area_proportion = 0.5 0.5');
+Eyelink('command','validation_area_proportion = 0.48 0.48');
 % set parser (conservative saccade thresholds)
 Eyelink('command', 'saccade_velocity_threshold = 35');
 Eyelink('command', 'saccade_acceleration_threshold = 9500');
@@ -209,6 +204,8 @@ fixCrossDimPix = 15;
 % Now we set the coordinates (all relative to zero)
 lineWidthPix = 2;
 FixCross_coords = [X-lineWidthPix,Y-fixCrossDimPix,X+lineWidthPix,Y+fixCrossDimPix;X-fixCrossDimPix,Y-lineWidthPix,X+fixCrossDimPix,Y+lineWidthPix];
+FixCross_coords_resp = [X-lineWidthPix,Y-fixCrossDimPix,X+lineWidthPix,Y+fixCrossDimPix;X-fixCrossDimPix,Y-lineWidthPix,X+fixCrossDimPix,Y+lineWidthPix];
+
 xCoords = [-fixCrossDimPix fixCrossDimPix 0 0];
 yCoords = [0 0 -fixCrossDimPix fixCrossDimPix];
 allCoords = [xCoords; yCoords];
@@ -282,26 +279,44 @@ space=KbName('SPACE');
 
 far_left=KbName('Z');
 left=KbName('X');
-right=KbName('C');
-far_right=KbName('V');
+right=KbName('N');
+far_right=KbName('M');
 
 RestrictKeysForKbCheck([esc,space,far_left,left,right,far_right]);
 HideCursor;  
 ListenChar(2);
 HideCursor;
+%% Loading videos
+cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/');
+
+movieNames = (dir('*.mp4'));
+
+still = dir('*.png');
 %% setting the timing parameters and giving a number of trials per block
 if subj.session == 1
     startTri = 1;
 %     load(sprintf('%s_%s_design.mat',subj.name,subj.task));
 %     totTri   = size(design,1);
-    toTri = startTri+5;
+    toTri = startTri+800;
+    
+    if subj.order=='1'
+        [v_ind,loc_v]=BalanceFactors(40,0,1:32,1:4);%sync ,[0,1] ,loc_s ,1:2
+    else
+        [v_ind,loc_v]=BalanceFactors(40,1,1:32,1:4);%sync ,[0,1] ,loc_s ,1:2
+    end
+
+    trials=length(v_ind);
+    
     logmatrix = zeros(8,trials);
 else
     name=subj.name;
     task=subj.task;
     session=subj.session-1;
+    cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/trial_storage');
     savename_L=['last_trial_' name '_task_' task '_session_' num2str(session) '.mat'];
     load(savename_L);
+    cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/');
+
 %     load(sprintf('%s_%s_design.mat',subj.name,subj.task));
 %     load(sprintf('%s_%03d_%s_log',subj.name,subj.session-1,subj.task), 'endTri');
     startTri = i; %no need to add 1, did this when saving
@@ -310,7 +325,12 @@ else
     % have not yet been presented, to ensure an overall balanced design
     % if the experiment is split across more than a single session.
 %     totTri   = size(design,1);
-    toTri = startTri+5;
+    trials = length(logmatrix(1,:));
+    if (startTri+800) >= trials
+        toTri = trials;
+    else
+        toTri = startTri+800;
+    end
 end
 
 % fixed timing parameters
@@ -391,42 +411,65 @@ PsychImaging('PrepareConfiguration');
     Moment_before_loop=GetSecs;
     % Main trial loop: Do 'trials' trials...
     for i=startTri:toTri
+        FixCross_coords_resp = [X-lineWidthPix,Y-fixCrossDimPix,X+lineWidthPix,Y+fixCrossDimPix;X-fixCrossDimPix,Y-lineWidthPix,X+fixCrossDimPix,Y+lineWidthPix];
         Eyelink('Message', 'START_TRIALID_%d', i); % for data viewer segregation 
         m_num=v_ind(i);
         iteration = v_ind(i);
-        moviename=movieNames(mod(iteration, size(movieNames,1))+1).name;   
+        moviename=movieNames(iteration).name;   
         %now setting the location, as given by tan(theta)=opposite/adjacent
-        if loc_v(i) == 1
-            angle=15.0;
+        if loc_v(i) == 4
+            angle=10.5;
             v_loc='far_right';
-        elseif loc_v(i) == 2
-            angle=5.0;
-            v_loc='right';
         elseif loc_v(i) == 3
-            angle=-5.0;
+            angle=3.5;
+            v_loc='right';
+        elseif loc_v(i) == 2
+            angle=-3.5;
             v_loc='left';
-        elseif loc_v(i) == 4
-            angle=-15.0;
+        elseif loc_v(i) == 1
+            angle=-10.5;
             v_loc='far_left';
         end        
-        if loc_a(i) == 1
+        if v_ind(i) == 3 || v_ind(i) == 4 || v_ind(i) == 11 || v_ind(i) == 12 || v_ind(i) == 19 || v_ind(i) == 20 || v_ind(i) == 27 || v_ind(i) == 28 
             a_loc='far_right';
-        elseif loc_a(i) == 2
+            loc_a = 4;
+        elseif v_ind(i) == 7 || v_ind(i) == 8 || v_ind(i) == 15 || v_ind(i) == 16 || v_ind(i) == 23 || v_ind(i) == 24 || v_ind(i) == 31 || v_ind(i) == 32 
             a_loc='right';
-        elseif loc_a(i) == 3
+            loc_a = 3;
+        elseif v_ind(i) == 5 || v_ind(i) == 6 || v_ind(i) == 13 || v_ind(i) == 14 || v_ind(i) == 21 || v_ind(i) == 22 || v_ind(i) == 29 || v_ind(i) == 30
             a_loc='left';
-        elseif loc_a(i) == 4
+            loc_a = 2;
+        elseif v_ind(i) == 1 || v_ind(i) == 2 || v_ind(i) == 9 || v_ind(i) == 10 || v_ind(i) == 17 || v_ind(i) == 18 || v_ind(i) == 25 || v_ind(i) == 26 
             a_loc='far_left';
+            loc_a = 1;
         end   
+        disp(moviename);
+        disp(i);
+        disp(loc_a);
         sync=1;
         combi_a_v=1;%these two should be coded numebers
         angle=pi*(angle/180);
         loccntr_target=tan(angle)*distanceFromDisplay;
+        loccntr_img1=tan(pi*(-10.5/180))*distanceFromDisplay;
+        loccntr_img2=tan(pi*(-3.5/180))*distanceFromDisplay;
+        loccntr_img3=tan(pi*(3.5/180))*distanceFromDisplay;
+        loccntr_img4=tan(pi*(10.5/180))*distanceFromDisplay;
+
+        if v_ind(i) < 17
+            img=Screen('MakeTexture', win, imread(still(1).name));
+        else
+            img=Screen('MakeTexture', win, imread(still(2).name));
+        end
         SizeTarget=150;
         Coords_cntr = [X+(loccntr_target-SizeTarget) Y-SizeTarget X+(loccntr_target+SizeTarget) Y+SizeTarget];
+        Coords_cntr1 = [X+(loccntr_img1-SizeTarget) Y-SizeTarget X+(loccntr_img1+SizeTarget) Y+SizeTarget];
+        Coords_cntr2 = [X+(loccntr_img2-SizeTarget) Y-SizeTarget X+(loccntr_img2+SizeTarget) Y+SizeTarget];
+        Coords_cntr3 = [X+(loccntr_img3-SizeTarget) Y-SizeTarget X+(loccntr_img3+SizeTarget) Y+SizeTarget];
+        Coords_cntr4 = [X+(loccntr_img4-SizeTarget) Y-SizeTarget X+(loccntr_img4+SizeTarget) Y+SizeTarget];
+
         logmatrix(1,i)=m_num;
         logmatrix(2,i)=loc_v(i);
-        logmatrix(3,i)=loc_a(i);
+        logmatrix(3,i)=loc_a;
         logmatrix(4,i)=sync;
         logmatrix(5,i)=combi_a_v;
         % Open the moviefile and query some infos like duration, framerate,
@@ -435,6 +478,11 @@ PsychImaging('PrepareConfiguration');
         % this property if you don't need it!
         %present fixation cross
         Screen('FillRect', win, [255,255,255], FixCross_coords', background );
+        Screen('DrawTexture', win, img, [], Coords_cntr1,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr2,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr3,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr4,[],[],1);
+
         [t_prefix prefixonset prefix_flip]=Screen('Flip', win); %this flip is used as a timing marker
         Eyelink('Message', 'pre-cue fixation onset');
 %         disp(t_prefix-Moment_before_loop)
@@ -500,7 +548,15 @@ PsychImaging('PrepareConfiguration');
             % Is it a valid texture?
             if (movietexture>0)
                 % Yes. Draw the texture into backbuffer:
+                %Screen('DrawTexture', win, movietexture, [], Coords_cntr,[],[],1);
+
+                Screen('DrawTexture', win, img, [], Coords_cntr1,[],[],1);
+                Screen('DrawTexture', win, img, [], Coords_cntr2,[],[],1);
+                Screen('DrawTexture', win, img, [], Coords_cntr3,[],[],1);
+                Screen('DrawTexture', win, img, [], Coords_cntr4,[],[],1);
                 Screen('DrawTexture', win, movietexture, [], Coords_cntr,[],[],1);
+
+                
                 Screen('FillRect', win, [255,255,255], FixCross_coords', background );
 %                 Screen('DrawLines', win, allCoords, lineWidthPix, [128 128 128]);
                
@@ -555,7 +611,9 @@ PsychImaging('PrepareConfiguration');
                     i=i+1; %now the trial where the next session should start should be i+1, so that not twice the same trial is performed
                     logmatrix(6,i)=rejecttrial;
                     name=subj.name;
-                    save(savename,'i','name','logmatrix')
+                    cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/trial_storage');
+
+                    save(savename,'i','name','logmatrix','loc_a','loc_v','v_ind')
                     % This signals abortion:
                     rejecttrial=-1;
                     Screen('CloseMovie', movie);
@@ -587,7 +645,11 @@ PsychImaging('PrepareConfiguration');
         %resp_duration seconds
         ini_resp = GetSecs;
         Stopt = ini_resp + resp_duration;%timeOfEvent+resp_duration%GetSecs + resp_duration;
-        Screen('FillRect', win, [128,218,128 ], FixCross_coords', background );
+        Screen('DrawTexture', win, img, [], Coords_cntr1,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr2,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr3,[],[],1);
+        Screen('DrawTexture', win, img, [], Coords_cntr4,[],[],1);
+        Screen('FillRect', win, [0,0,255 ], FixCross_coords', background );
         [t_postfix, postfixonset]=Screen('Flip', win);
         Eyelink('Message', 'RESPONSE_ONSET');
         while GetSecs<Stopt
@@ -602,15 +664,23 @@ PsychImaging('PrepareConfiguration');
             if keyIsDown%keyCode(space) || keyCode(far_left) || keyCode(left) || keyCode(right) || keyCode(far_right)
                 if keyCode(far_left) 
                     logmatrix(7,i)=1;
+                    X_resp=tan(pi*(10.5/180))*distanceFromDisplay;
+                    FixCross_coords_resp = [X-X_resp-lineWidthPix,Y-fixCrossDimPix,X-X_resp+lineWidthPix,Y+fixCrossDimPix;X-X_resp-fixCrossDimPix,Y-lineWidthPix,X-X_resp+fixCrossDimPix,Y+lineWidthPix];
                 end
                 if keyCode(left) 
                     logmatrix(7,i)=2;
+                    X_resp=tan(pi*(3.5/180))*distanceFromDisplay;
+                    FixCross_coords_resp = [X-X_resp-lineWidthPix,Y-fixCrossDimPix,X-X_resp+lineWidthPix,Y+fixCrossDimPix;X-X_resp-fixCrossDimPix,Y-lineWidthPix,X-X_resp+fixCrossDimPix,Y+lineWidthPix];
                 end
                 if keyCode(right) 
-                    logmatrix(7,i)=3;
+                    logmatrix(7,i)=3;                    
+                    X_resp=tan(pi*(-3.5/180))*distanceFromDisplay;
+                    FixCross_coords_resp = [X-X_resp-lineWidthPix,Y-fixCrossDimPix,X-X_resp+lineWidthPix,Y+fixCrossDimPix;X-X_resp-fixCrossDimPix,Y-lineWidthPix,X-X_resp+fixCrossDimPix,Y+lineWidthPix];
                 end
                 if keyCode(far_right) 
-                    logmatrix(7,i)=4;
+                    logmatrix(7,i)=4;                    
+                    X_resp=tan(pi*(-10.5/180))*distanceFromDisplay;
+                    FixCross_coords_resp = [X-X_resp-lineWidthPix,Y-fixCrossDimPix,X-X_resp+lineWidthPix,Y+fixCrossDimPix;X-X_resp-fixCrossDimPix,Y-lineWidthPix,X-X_resp+fixCrossDimPix,Y+lineWidthPix];
                 end
                 timeEndVideo=vbl+movieduration;
                 reactiontime=seconds-startResponse; %compare the moment of keypress with the moment the video ended/last frame was shown
@@ -633,7 +703,10 @@ PsychImaging('PrepareConfiguration');
                 if keyCode(esc)
                     rejecttrial=5; %last trial should be rejected due to participant aborting program
                     i=i+1; %now the trial where the next session should start should be i+1, so that not twice the same trial is performed
-                    save(savename,'i','name','logmatrix')
+                    cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/trial_storage');
+
+                    save(savename,'i','name','logmatrix','loc_a','loc_v','v_ind')
+
 
                     rejecttrial=-1;
                     Screen('CloseMovie', movie);
@@ -679,16 +752,24 @@ PsychImaging('PrepareConfiguration');
         %now present in the case of practice, whether the correct answer
         %was given
         if subj.task=='prac' 
-           tsize=30;
-           Screen('TextSize', win, tsize);
-           txt1=['Visual target at: '  num2str(v_loc) '.' ];
-           txt2=['Auditory target at: '  num2str(a_loc) '.'];
-           Screen('DrawText', win, txt1 ,X-150,Y ); %note that capital X and Y are the center of the screen where the fix. cross is presented
-           Screen('DrawText', win, txt2 ,X-150,Y+30 );
-           %            [x, y]=Screen('DrawText', win, 'The visual target was presented at:' + str(angle) );
-           Screen('Flip', win);
-           WaitSecs(2.0);
-           Screen('Flip', win);
+            if loc_a == 1
+                Coords_correct = Coords_cntr1;
+            elseif loc_a == 2
+                Coords_correct = Coords_cntr2;
+            elseif loc_a == 3
+                Coords_correct = Coords_cntr3;
+            elseif loc_a == 4
+                Coords_correct = Coords_cntr4;
+            end
+            Screen('DrawTexture', win, img, [], Coords_cntr1,[],[],1);
+            Screen('DrawTexture', win, img, [], Coords_cntr2,[],[],1);
+            Screen('DrawTexture', win, img, [], Coords_cntr3,[],[],1);
+            Screen('DrawTexture', win, img, [], Coords_cntr4,[],[],1);
+            Screen('FillRect', win, [128,218,128 ], Coords_correct', background );
+            Screen('FillRect', win, [255,255,255 ], FixCross_coords_resp', background );
+            Screen('FillRect', win, [0,0,255 ], FixCross_coords', background );
+            Screen('Flip', win);
+            WaitSecs(0.5);
         end
         
         if (reactiontime==-1 && rejecttrial==0)
@@ -718,7 +799,7 @@ PsychImaging('PrepareConfiguration');
         end;
         
         %now check if a break is needed (I set it to once every 20 trials)
-        modulus=mod(i,3);
+        modulus=mod(i,nperblock);
         if modulus==0
             tsize=30;
             Screen('TextSize', win, tsize);
@@ -738,9 +819,10 @@ PsychImaging('PrepareConfiguration');
                 % This signals abortion:
                 rejecttrial=-1;
                 WaitSecs(0.8);
+                cd('/home_local/meduser/Desktop/Data/data/Users/jocbeu/Experiment/movies_to_be_presented/trial_storage');
 
                 %save data
-                save(savename,'i','name','logmatrix')
+                save(savename,'i','name','logmatrix','loc_a','loc_v','v_ind')
 
                 % Break out of display loop:
                 eyelink_close(edfFile);
